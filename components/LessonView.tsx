@@ -303,19 +303,24 @@ const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, current
                         </div>
                     </>
                 ) : (
-                    <div className="w-full py-8 text-center px-4 bg-slate-50 h-full flex flex-col items-center justify-center">
+                    // Beautiful Gradient Fallback if image fails or is loading
+                    <div className="w-full h-full absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex flex-col items-center justify-center p-8 text-center text-white">
                         {imageLoading ? (
                              <div className="flex flex-col items-center animate-pulse">
-                                 <div className="w-12 h-12 bg-slate-200 rounded-full mb-3"></div>
-                                 <p className="text-slate-400 font-medium">Diseñando gráfico explicativo...</p>
+                                 <div className="w-12 h-12 bg-white/20 rounded-full mb-3 backdrop-blur"></div>
+                                 <p className="text-white/80 font-medium">Diseñando gráfico explicativo...</p>
                              </div>
                         ) : (
-                            <div className="text-slate-300 flex flex-col items-center">
-                                <svg className="w-16 h-16 mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
+                            // Fallback static design
+                            <div className="flex flex-col items-center opacity-90">
+                                <span className="text-6xl mb-4 opacity-50">📊</span>
+                                <h3 className="text-2xl font-bold mb-2">{lesson.title}</h3>
+                                <p className="text-white/80 text-sm max-w-md">Psicología & Datos</p>
                             </div>
                         )}
+                        {/* Decorative patterns */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
+                        <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-900/10 rounded-full blur-2xl transform -translate-x-10 translate-y-10"></div>
                     </div>
                 )}
             </div>

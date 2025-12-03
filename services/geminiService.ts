@@ -196,11 +196,23 @@ export const generateConceptImage = async (concept: string) => {
     };
 
     try {
+        // We use ENGLISH prompt to avoid safety filters and get better quality from the model
+        // even if the app is in Spanish.
+        const englishPrompt = `
+            Minimalist, modern flat vector illustration about: ${concept}. 
+            Style: Corporate Memphis, clean lines, educational, abstract data visualization.
+            Colors: Soft Blue, Mint Green, White, Indigo.
+            No text, no realistic faces, high quality.
+        `;
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: {
-                parts: [{ text: `Ilustración minimalista y moderna estilo 'Corporate Memphis' o vectorial plana sobre: ${concept}, relacionada con análisis de datos, psicología o investigación. Colores suaves: Azules, Verdes menta, Blanco. Sin texto.` }]
+                parts: [{ text: englishPrompt }]
             },
+            config: {
+                imageConfig: { aspectRatio: '16:9' } // Panoramic for header
+            }
         });
 
         return extractImage(response);
