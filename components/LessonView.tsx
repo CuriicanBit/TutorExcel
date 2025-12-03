@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { LessonTopic, LessonStatus } from '../types';
+import { LessonTopic, LessonStatus, ExcelPlatform } from '../types';
 import { generateLessonContent, generateConceptImage } from '../services/geminiService';
 
 interface LessonViewProps {
     lesson: LessonTopic;
     onStatusChange: (status: LessonStatus) => void;
     currentStatus: LessonStatus;
+    platform: ExcelPlatform | null;
+    setPlatform: (p: ExcelPlatform) => void;
 }
 
 // Table Renderer Component to look like Excel
@@ -194,7 +196,7 @@ const RichTextRenderer: React.FC<{ content: string }> = ({ content }) => {
     return <div className="space-y-1">{elements}</div>;
 };
 
-const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, currentStatus }) => {
+const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, currentStatus, platform, setPlatform }) => {
     const [content, setContent] = useState<string | null>(null);
     const [videoLinks, setVideoLinks] = useState<{title: string, uri: string}[]>([]);
     const [loading, setLoading] = useState(false);
@@ -204,17 +206,23 @@ const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, current
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [imageLoading, setImageLoading] = useState(false);
 
-    // Initial Load
+    // Initial Load - Depend on platform being set
     useEffect(() => {
+        // If no platform is selected yet, do NOT load content. Wait for user selection.
+        if (!platform) {
+            setContent(null);
+            return;
+        }
+
         let isMounted = true;
+        
         const loadLessonContent = async () => {
             setLoading(true);
             setContent(null);
             setVideoLinks([]);
             try {
-                // If status is reinforcement, load reinforcement content? 
-                // Currently defaulting to standard unless explicitly requested via button.
-                const data = await generateLessonContent(lesson, false);
+                // Pass platform to generation service
+                const data = await generateLessonContent(lesson, false, platform);
                 if (isMounted) {
                     setContent(data.markdown);
                     setVideoLinks(data.videoLinks || []);
@@ -230,10 +238,11 @@ const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, current
         loadLessonContent();
         
         return () => { isMounted = false; };
-    }, [lesson]);
+    }, [lesson, platform]); // Reload when platform changes or lesson changes
 
-    // Image Load
+    // Image Load - Only on lesson change
     useEffect(() => {
+        // We can load the image even if platform isn't selected yet, as it's generic concept art
         let isMounted = true;
         const loadImage = async () => {
             setGeneratedImage(null);
@@ -249,13 +258,14 @@ const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, current
         };
         loadImage();
         return () => { isMounted = false; };
-    }, [lesson]);
+    }, [lesson]); 
 
     const handleReinforcement = async () => {
+        if (!platform) return;
         setReinforcementLoading(true);
         onStatusChange('reinforcement');
         try {
-            const data = await generateLessonContent(lesson, true); // True for reinforcement mode
+            const data = await generateLessonContent(lesson, true, platform); // True for reinforcement mode
             setContent(data.markdown);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err) {
@@ -265,27 +275,85 @@ const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, current
         }
     };
 
-    if (loading) {
+    // --- RENDER: PLATFORM SELECTION SCREEN (First Time) ---
+    if (!platform) {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-                <p className="font-medium text-slate-500">Preparando tu clase...</p>
-                <p className="text-sm text-slate-400 mt-2">Personalizando contenido...</p>
+            <div className="flex flex-col items-center justify-center min-h-[80vh] animate-in fade-in duration-700">
+                <div className="text-center mb-10 max-w-2xl">
+                    <h1 className="text-4xl font-bold text-slate-800 mb-4">¡Bienvenido al Laboratorio! 🧬</h1>
+                    <p className="text-xl text-slate-600">Para darte las instrucciones precisas, necesitamos saber qué herramienta usarás hoy.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-5xl">
+                    {[
+                        { id: 'Windows', icon: '💻', label: 'Windows', desc: 'Versión de Escritorio Estándar' },
+                        { id: 'Mac', icon: '🍎', label: 'Mac OS', desc: 'Computadoras Apple' },
+                        { id: 'Tablet', icon: '📱', label: 'Tablet', desc: 'Android o iPad (App Móvil)' },
+                        { id: 'Web', icon: '🌐', label: 'Excel Online', desc: 'Navegador Web (Office 365)' }
+                    ].map((opt) => (
+                        <button
+                            key={opt.id}
+                            onClick={() => setPlatform(opt.id as ExcelPlatform)}
+                            className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all group flex flex-col items-center text-center"
+                        >
+                            <span className="text-5xl mb-4 grayscale group-hover:grayscale-0 transition-all">{opt.icon}</span>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-indigo-700">{opt.label}</h3>
+                            <p className="text-sm text-slate-500">{opt.desc}</p>
+                        </button>
+                    ))}
+                </div>
+                
+                <p className="mt-12 text-slate-400 text-sm">Guardaremos tu elección para la próxima vez.</p>
             </div>
         );
     }
 
+    // --- RENDER: LOADING STATE ---
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[70vh] text-slate-400">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+                <p className="font-medium text-slate-500 text-lg">Preparando tu clase para <span className="text-indigo-600 font-bold">{platform}</span>...</p>
+                <p className="text-sm text-slate-400 mt-2">Personalizando menús, atajos y ejemplos...</p>
+            </div>
+        );
+    }
+
+    // --- RENDER: LESSON CONTENT ---
     return (
         <div className="max-w-4xl mx-auto pb-20">
             {/* Header Section */}
-            <header className="mb-8 border-b border-slate-200 pb-6">
-                <div className="flex items-center space-x-2 text-sm text-indigo-600 font-semibold mb-2">
-                    <span className="bg-indigo-50 px-2 py-0.5 rounded-md uppercase text-xs tracking-wider">{lesson.level}</span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-slate-500">ID: {lesson.id}</span>
-                    {currentStatus === 'completed' && <span className="text-emerald-600 flex items-center gap-1 ml-2">✓ Completada</span>}
-                    {currentStatus === 'reinforcement' && <span className="text-amber-600 flex items-center gap-1 ml-2">⚠️ Refuerzo</span>}
+            <header className="mb-6 border-b border-slate-200 pb-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center space-x-2 text-sm text-indigo-600 font-semibold">
+                        <span className="bg-indigo-50 px-2 py-0.5 rounded-md uppercase text-xs tracking-wider">{lesson.level}</span>
+                        <span className="text-slate-300">|</span>
+                        <span className="text-slate-500">ID: {lesson.id}</span>
+                        {currentStatus === 'completed' && <span className="text-emerald-600 flex items-center gap-1 ml-2">✓ Completada</span>}
+                        {currentStatus === 'reinforcement' && <span className="text-amber-600 flex items-center gap-1 ml-2">⚠️ Refuerzo</span>}
+                    </div>
+
+                    {/* Platform Selector (Small) */}
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+                        {(['Windows', 'Mac', 'Web', 'Tablet'] as ExcelPlatform[]).map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => setPlatform(p)}
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1
+                                ${platform === p 
+                                    ? 'bg-slate-800 text-white shadow-sm' 
+                                    : 'text-slate-500 hover:bg-slate-100'}`}
+                            >
+                                {p === 'Windows' && <span>💻</span>}
+                                {p === 'Mac' && <span>🍎</span>}
+                                {p === 'Web' && <span>🌐</span>}
+                                {p === 'Tablet' && <span>📱</span>}
+                                {p}
+                            </button>
+                        ))}
+                    </div>
                 </div>
+
                 <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">{lesson.title}</h1>
                 <p className="text-xl text-slate-500 font-light">{lesson.description}</p>
             </header>

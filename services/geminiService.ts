@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { LessonTopic } from "../types";
+import { LessonTopic, ExcelPlatform } from "../types";
 
 // Helper to ensure API key exists, compatible with Vercel and local
 const getAIClient = (): GoogleGenAI | null => {
@@ -18,7 +18,7 @@ const getAIClient = (): GoogleGenAI | null => {
  * Generates the full lesson content, including examples and a quiz.
  * Uses Search Grounding to find real-world tutorials/videos.
  */
-export const generateLessonContent = async (topic: LessonTopic, reinforcementMode: boolean = false) => {
+export const generateLessonContent = async (topic: LessonTopic, reinforcementMode: boolean = false, platform: ExcelPlatform = 'Windows') => {
     const ai = getAIClient();
 
     if (!ai) {
@@ -45,11 +45,28 @@ export const generateLessonContent = async (topic: LessonTopic, reinforcementMod
         `;
     }
 
+    // Platform specific context
+    let platformInstruction = '';
+    switch (platform) {
+        case 'Mac':
+            platformInstruction = 'IMPORTANTE: El usuario usa **MacOS**. Usa siempre "Cmd" en lugar de "Ctrl". Menciona si los menús están en lugares diferentes a Windows.';
+            break;
+        case 'Tablet':
+            platformInstruction = 'IMPORTANTE: El usuario usa **Tablet (Android/iPad)**. La interfaz es la APP MÓVIL. Ten en cuenta que pueden usar pantalla táctil O teclado/trackpad. Enfócate en la ubicación de los menús en la App móvil (que son reducidos), pero menciona atajos de teclado si facilitan la tarea.';
+            break;
+        case 'Web':
+            platformInstruction = 'IMPORTANTE: El usuario usa **Excel Online (Web)**. Advierte si alguna función avanzada no está disponible. Los atajos suelen ser similares a Windows pero en el navegador.';
+            break;
+        default: // Windows
+            platformInstruction = 'El usuario usa **Windows** (Versión de escritorio estándar).';
+    }
+
     // Prompt optimizado para español, estructura visual y EJERCICIOS PRÁCTICOS
     const prompt = `
         ${promptInstruction}
         
-        Contexto Específico: ${topic.promptContext}
+        CONTEXTO DE PLATAFORMA: ${platformInstruction}
+        Contexto Específico del Tema: ${topic.promptContext}
         
         Estructura Obligatoria del Markdown (Respeta estos títulos exactos):
         
@@ -58,8 +75,8 @@ export const generateLessonContent = async (topic: LessonTopic, reinforcementMod
         ### 1. Concepto ${reinforcementMode ? 'Explicado Simple' : 'en Investigación'}
         Explica qué es esto y por qué un psicólogo lo necesita.
         
-        ### 2. Instrucciones Paso a Paso
-        Guía técnica de cómo hacerlo en Excel. Usa viñetas numeradas. Sé muy claro con los menús.
+        ### 2. Instrucciones Paso a Paso (${platform})
+        Guía técnica de cómo hacerlo en Excel versión **${platform}**. Usa viñetas numeradas. Sé muy claro con los menús específicos de esta versión.
         
         ### 3. Ejemplo Psicológico Real
         Describe un escenario de investigación y cómo se aplica.
@@ -70,7 +87,7 @@ export const generateLessonContent = async (topic: LessonTopic, reinforcementMod
         | 01 | Dato A | Dato B |
         
         ### 4. Laboratorio de Práctica
-        Diseña 3 ejercicios concretos y desafiantes ("Tareas") que el estudiante debe realizar ahora mismo.
+        Diseña 3 ejercicios concretos y desafiantes ("Tareas") que el estudiante debe realizar ahora mismo usando su ${platform}.
         
         IMPORTANTE: 
         - Idioma: ESPAÑOL estricto.

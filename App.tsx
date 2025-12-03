@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navigation from './components/Navigation';
 import LessonView from './components/LessonView';
 import ChatTutor from './components/ChatTutor';
 import FunctionDictionary from './components/FunctionDictionary';
 import Visualizer from './components/Visualizer';
-import { AppView, LessonTopic, UserProgress, LessonStatus } from './types';
+import { AppView, LessonTopic, UserProgress, LessonStatus, ExcelPlatform } from './types';
 import { CURRICULUM } from './constants';
 
 const App: React.FC = () => {
@@ -13,8 +13,33 @@ const App: React.FC = () => {
     const [currentLesson, setCurrentLesson] = useState<LessonTopic>(CURRICULUM[0]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     
-    // Progress State
-    const [progress, setProgress] = useState<UserProgress>({});
+    // PERSISTENT STATE: Progress
+    const [progress, setProgress] = useState<UserProgress>(() => {
+        try {
+            const saved = localStorage.getItem('psycho_progress');
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            return {};
+        }
+    });
+
+    // PERSISTENT STATE: Platform Preference
+    // Initialize as null if not found to force selection on first visit
+    const [platform, setPlatform] = useState<ExcelPlatform | null>(() => {
+        return localStorage.getItem('psycho_platform') as ExcelPlatform || null;
+    });
+
+    // Save Progress to LocalStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('psycho_progress', JSON.stringify(progress));
+    }, [progress]);
+
+    // Save Platform to LocalStorage whenever it changes
+    useEffect(() => {
+        if (platform) {
+            localStorage.setItem('psycho_platform', platform);
+        }
+    }, [platform]);
 
     const handleSelectLesson = (lesson: LessonTopic) => {
         setCurrentLesson(lesson);
@@ -75,6 +100,8 @@ const App: React.FC = () => {
                         lesson={currentLesson} 
                         onStatusChange={(status) => handleUpdateProgress(currentLesson.id, status)}
                         currentStatus={progress[currentLesson.id] || 'none'}
+                        platform={platform}
+                        setPlatform={setPlatform}
                     />
                 )}
                 

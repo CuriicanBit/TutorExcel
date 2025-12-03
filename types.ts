@@ -48,3 +48,5 @@ export type LessonStatus = 'completed' | 'reinforcement' | 'review' | 'none';
 export interface UserProgress {
     [lessonId: string]: LessonStatus;
 }
+
+export type ExcelPlatform = 'Windows' | 'Mac' | 'Web' | 'Tablet';
