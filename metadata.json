@@ -1,0 +1,7 @@
+{
+  "name": "PsychoStats: Excel Tutor",
+  "description": "An AI-powered interactive Excel tutor tailored specifically for Psychology students. Learn spreadsheets through research scenarios, from basics to pivot tables.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
