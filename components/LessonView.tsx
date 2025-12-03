@@ -375,8 +375,9 @@ const LessonView: React.FC<LessonViewProps> = ({ lesson, onStatusChange, current
                 {/* Sidebar Column */}
                 <div className="lg:col-span-4 space-y-6">
                     <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 relative overflow-hidden shadow-sm">
-                        <h3 className="text-sm font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                        <h3 className="text-sm font-bold text-emerald-800 uppercase tracking-wider mb-2 flex justify-between items-center">
                             Tip Investigador
+                             <span className={`h-2 w-2 rounded-full ${generatedImage ? 'bg-emerald-400' : 'bg-orange-300'}`} title={generatedImage ? "Imagen IA generada" : "Imagen de respaldo"}></span>
                         </h3>
                         <p className="text-sm text-emerald-900 leading-relaxed z-10 relative">
                             "Mantén siempre una copia de tus datos 'crudos' (raw data) en una hoja separada antes de empezar a limpiar o calcular. Es tu seguro de vida."
