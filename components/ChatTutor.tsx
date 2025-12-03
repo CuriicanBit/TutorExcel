@@ -29,7 +29,7 @@ const ChatTutor: React.FC = () => {
             }));
 
             const response = await chatWithTutor(history, userMsg);
-            setMessages(prev => [...prev, { role: 'model', text: response }]);
+            setMessages(prev => [...prev, { role: 'model', text: response || "Lo siento, no pude generar una respuesta." }]);
         } catch (error) {
             setMessages(prev => [...prev, { role: 'model', text: 'Lo siento, tuve un problema conectando con el servidor.' }]);
         } finally {
@@ -54,10 +54,10 @@ const ChatTutor: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed shadow-sm
+                        <div className={`max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed shadow-sm border
                             ${msg.role === 'user' 
-                                ? 'bg-indigo-600 text-white rounded-br-none' 
-                                : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'}`}
+                                ? 'bg-indigo-600 text-white border-indigo-600 rounded-br-none' 
+                                : 'bg-white text-slate-900 border-slate-200 rounded-bl-none'}`}
                         >
                             {msg.text}
                         </div>

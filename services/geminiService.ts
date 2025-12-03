@@ -1,22 +1,29 @@
 import { GoogleGenAI } from "@google/genai";
 import { LessonTopic } from "../types";
 
-// Helper to ensure API key exists
-const getAIClient = () => {
-    if (!process.env.API_KEY) {
-        throw new Error("API Key not found");
+// Helper to ensure API key exists, compatible with Vercel and local
+const getAIClient = (): GoogleGenAI | null => {
+    // Check various environment variable patterns to support Vite, Vercel, and standard Node
+    const key = process.env.API_KEY || 
+                (import.meta as any).env?.VITE_API_KEY || 
+                (window as any).VITE_API_KEY;
+
+    if (!key) {
+        return null;
     }
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return new GoogleGenAI({ apiKey: key });
 };
 
 /**
  * Generates the full lesson content, including examples and a quiz.
  * Uses Search Grounding to find real-world tutorials/videos.
- * @param topic The lesson topic
- * @param reinforcementMode If true, generates simplified content with alternative analogies.
  */
 export const generateLessonContent = async (topic: LessonTopic, reinforcementMode: boolean = false) => {
     const ai = getAIClient();
+
+    if (!ai) {
+        throw new Error("Falta configurar la API Key de Google Gemini.");
+    }
     
     // Base instructions
     let promptInstruction = '';
@@ -75,7 +82,6 @@ export const generateLessonContent = async (topic: LessonTopic, reinforcementMod
 
     try {
         // Try with Search Grounding first for up-to-date info
-        // Note: Reinforcement mode might not need search, but it helps for variety.
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
@@ -98,24 +104,29 @@ export const generateLessonContent = async (topic: LessonTopic, reinforcementMod
 
         return { markdown: text, videoLinks };
 
-    } catch (error) {
-        console.warn("Search grounding failed, falling back to basic generation.", error);
+    } catch (error: any) {
+        console.warn("Gemini API failed with tools.", error);
         
+        // Error handling helper
+        const errorMsg = error.toString();
+        if (errorMsg.includes('400') || errorMsg.includes('INVALID_ARGUMENT')) {
+            return { markdown: "# Error de Configuración\n\nLa API Key parece ser inválida. Asegúrate de haberla copiado correctamente (sin espacios extra) y que tu proyecto en Google AI Studio esté activo.", videoLinks: [] };
+        }
+
         try {
-            // Fallback to basic generation without tools
+            // Fallback: Try basic generation without tools if the first error was tools-related
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
-                config: {
-                    systemInstruction: systemInstruction,
-                }
+                config: { systemInstruction }
             });
             
             return { markdown: response.text || "No se pudo generar el contenido.", videoLinks: [] };
-        } catch (fallbackError) {
-             console.error("Fallback generation failed", fallbackError);
+
+        } catch (fallbackError: any) {
+             console.error("All API attempts failed.", fallbackError);
              return { 
-                 markdown: `### Lo sentimos\n\nHubo un problema técnico generando esta lección. Por favor intenta recargar la página o selecciona otra lección del menú.\n\nError: ${(fallbackError as any).message || 'Desconocido'}`, 
+                 markdown: `# Error de Conexión\n\nNo pudimos conectar con el tutor virtual. \n\n**Posibles causas:**\n1. La API Key no está configurada en Vercel.\n2. La API Key es inválida o expiró.\n3. Problema temporal de red.\n\nError técnico: ${fallbackError.message || fallbackError}`, 
                  videoLinks: [] 
              };
         }
@@ -128,7 +139,10 @@ export const generateLessonContent = async (topic: LessonTopic, reinforcementMod
 export const chatWithTutor = async (history: { role: string, parts: { text: string }[] }[], newMessage: string) => {
     const ai = getAIClient();
     
-    // Updated Persona: Patient, Psychology-focused, Beginner-friendly.
+    if (!ai) {
+        return "Error: No se detectó ninguna API Key configurada. Por favor agrega VITE_API_KEY en las variables de entorno.";
+    }
+
     const systemInstruction = `
         Eres 'PsychoStats Bot', un tutor experto en Excel pero con la paciencia de un maestro de primaria. 
         Tu usuario es un estudiante de PSICOLOGÍA que sabe MUY POCO o NADA de Excel.
@@ -143,26 +157,35 @@ export const chatWithTutor = async (history: { role: string, parts: { text: stri
 
     try {
         const chat = ai.chats.create({
-            model: 'gemini-2.5-flash', // Use Flash specifically for speed and free tier reliability
+            model: 'gemini-2.5-flash',
             history: history,
             config: { systemInstruction }
         });
 
         const result = await chat.sendMessage({ message: newMessage });
         return result.text;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Chat failed", error);
-        return "Lo siento, hubo un error de conexión. Intenta preguntar nuevamente.";
+        const errorMsg = error.toString();
+        
+        if (errorMsg.includes('400') || errorMsg.includes('INVALID_ARGUMENT')) {
+            return "Error de Llave (API Key): Parece que la clave configurada es inválida. Verifica que no tenga espacios extra o caracteres faltantes.";
+        }
+        if (errorMsg.includes('403') || errorMsg.includes('PERMISSION_DENIED')) {
+            return "Error de Permisos: La clave API es válida pero no tiene permisos. Verifica tu cuenta de Google AI Studio.";
+        }
+
+        return "Lo siento, hubo un error de conexión con la IA. Por favor intenta de nuevo en unos segundos.";
     }
 };
 
 /**
  * Generates a helpful visualization of a concept using Image Generation.
- * Defaulting to Flash Image for free/fast generation without auth dialogs.
  */
 export const generateConceptImage = async (concept: string) => {
     const ai = getAIClient();
-    
+    if (!ai) return null;
+
     const extractImage = (response: any) => {
          for (const part of response.candidates?.[0]?.content?.parts || []) {
             if (part.inlineData) {
@@ -189,10 +212,10 @@ export const generateConceptImage = async (concept: string) => {
 
 /**
  * Generates an educational video concept using Veo.
- * NOTE: Often requires paid project. Kept for completeness but UI may hide it.
  */
 export const generateConceptVideo = async (topic: string) => {
      const ai = getAIClient();
+     if (!ai) throw new Error("API Key required for video");
      
      let operation = await ai.models.generateVideos({
         model: 'veo-3.1-fast-generate-preview',

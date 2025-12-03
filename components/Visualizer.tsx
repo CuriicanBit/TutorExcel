@@ -15,7 +15,6 @@ const Visualizer: React.FC = () => {
 
         try {
              // For Veo (Video Generation), explicit user consent/key selection is mandatory.
-             // We only prompt here because the user explicitly clicked "Create Video".
              if ((window as any).aistudio) {
                  const hasKey = await (window as any).aistudio.hasSelectedApiKey();
                  if (!hasKey) {
@@ -25,7 +24,8 @@ const Visualizer: React.FC = () => {
 
              const uri = await generateConceptVideo(prompt);
              // Append API key to stream
-             const finalUrl = `${uri}&key=${process.env.API_KEY}`;
+             const key = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY || (window as any).VITE_API_KEY;
+             const finalUrl = `${uri}&key=${key}`;
              setVideoUrl(finalUrl);
 
         } catch (err: any) {
